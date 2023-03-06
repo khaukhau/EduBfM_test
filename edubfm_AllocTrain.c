@@ -76,11 +76,49 @@ Four edubfm_AllocTrain(
     Four 	i;
     
 
+	
 	/* Error check whether using not supported functionality by EduBfM */
 	if(sm_cfgParams.useBulkFlush) ERR(eNOTSUPPORTED_EDUBFM);
 
+    victim = BI_NEXTVICTIM(type);
 
+    if (BI_NBUFS(type) == 0) {
+        ERR(eNOUNFIXEDBUF_BFM);
+    }
+
+    i = 0;
+    while (TRUE) {
+        if (BI_FIXED(type, victim) == 0) {
+            if (BI_BITS(type, victim) & REFER) {
+                BI_BITS(type, victim) = !REFER;
+            } else {
+                break;
+            }
+        }
+
+        i++;
+        victim = (victim + 1) % BI_NBUFS(type); 
+    }
     
+    
+    
+    if (BI_KEY(type, victim).pageNo != NIL) {
+        if (BI_BITS(type, victim) & DIRTY) {
+            e = edubfm_FlushTrain(&BI_KEY(type, victim), type);
+            if (e < 0) {
+                ERR(e);
+            }
+        }
+        
+        e = edubfm_Delete(&BI_KEY(type, victim), type);
+        if (e < 0) {
+            ERR(e);
+        }
+    }
+
+    BI_BITS(type, victim) = 0;
+    BI_NEXTVICTIM(type) = (victim + 1) % BI_NBUFS(type);
+
     return( victim );
     
 }  /* edubfm_AllocTrain */
